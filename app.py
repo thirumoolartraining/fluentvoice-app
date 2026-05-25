@@ -201,23 +201,29 @@ button[kind="secondary"],
 }
 [data-testid="stFileUploader"]:hover { border-color: #C9A84C !important; }
 
-/* Reset the file uploader's internal Browse button — don't inherit global button styles */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploadDropzone"] button {
+/* File uploader browse button — needs 3-attribute specificity to beat the main button rule */
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploader"] button,
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploader"] .stButton > button,
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploadDropzone"] button {
   background: white !important;
-  color: #1B2B5E !important;
-  border: 1.5px solid #1B2B5E !important;
+  color: #374151 !important;
+  border: 1.5px solid #D4D9EE !important;
   border-radius: 8px !important;
   font-weight: 600 !important;
   font-size: .82rem !important;
-  padding: 0.35rem 1rem !important;
+  padding: 0.38rem 1.1rem !important;
   box-shadow: none !important;
   transform: none !important;
+  width: auto !important;
+  min-width: 0 !important;
   letter-spacing: 0 !important;
+  line-height: 1.4 !important;
 }
-[data-testid="stFileUploader"] button:hover,
-[data-testid="stFileUploadDropzone"] button:hover {
-  background: #EEF2FF !important;
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploader"] button:hover,
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploader"] .stButton > button:hover,
+[data-testid="stMainBlockContainer"] [data-testid="stFileUploadDropzone"] button:hover {
+  background: #F0F4FF !important;
+  border-color: #1B2B5E !important;
   transform: none !important;
   box-shadow: none !important;
   opacity: 1 !important;
