@@ -143,11 +143,20 @@ st.markdown("""
   font-size: .9rem !important;
   transition: all .2s !important;
   border: none !important;
+  border-bottom: none !important;
 }
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
   background: white !important;
   color: #1B2B5E !important;
   box-shadow: 0 2px 10px rgba(27,43,94,0.12) !important;
+  border-bottom: none !important;
+}
+/* Hide BaseUI's default red/orange tab highlight bar */
+[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+[data-testid="stTabs"] [data-baseweb="tab-border"] {
+  display: none !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 /* ── Main buttons ── */
@@ -191,6 +200,28 @@ button[kind="secondary"],
   transition: border-color .2s !important;
 }
 [data-testid="stFileUploader"]:hover { border-color: #C9A84C !important; }
+
+/* Reset the file uploader's internal Browse button — don't inherit global button styles */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploadDropzone"] button {
+  background: white !important;
+  color: #1B2B5E !important;
+  border: 1.5px solid #1B2B5E !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: .82rem !important;
+  padding: 0.35rem 1rem !important;
+  box-shadow: none !important;
+  transform: none !important;
+  letter-spacing: 0 !important;
+}
+[data-testid="stFileUploader"] button:hover,
+[data-testid="stFileUploadDropzone"] button:hover {
+  background: #EEF2FF !important;
+  transform: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
 
 /* ── Audio input ── */
 [data-testid="stAudioInput"] {
