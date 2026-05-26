@@ -400,17 +400,17 @@ def severity_banner_html(severity: str) -> str:
 def metric_cards_html(score: float, rate: float, disf_count: int, pause_count: int) -> str:
     rate_val = f"{rate:.0f}" if rate <= 300 else "N/A"
     cards = [
-        ("🎯", f"{score:.1f}", "Fluency Score",  "#1B2B5E"),
-        ("💬", rate_val,       "Speech Rate",  "#6366F1"),
-        ("⚡", str(disf_count),"Disfluencies", "#F59E0B"),
-        ("⏸", str(pause_count),"Pauses",       "#EC4899"),
+        ("🎯", f"{score:.1f}", "Fluency Score",  "#1B2B5E", f"Fluency score is {score:.1f} out of 100"),
+        ("💬", rate_val,       "Speech Rate",  "#6366F1", f"Speech rate is {rate_val} words per minute"),
+        ("⚡", str(disf_count),"Disfluencies", "#F59E0B", f"Detected {disf_count} disfluency events"),
+        ("⏸", str(pause_count),"Pauses",       "#EC4899", f"Detected {pause_count} pause events"),
     ]
     inner = ""
-    for icon, val, label, color in cards:
+    for icon, val, label, color, aria_label in cards:
         inner += f"""
-        <div style="background:white;border-radius:18px;padding:20px 16px;text-align:center;
+        <div role="region" aria-label="{aria_label}" style="background:white;border-radius:18px;padding:20px 16px;text-align:center;
           box-shadow:0 2px 12px rgba(27,43,94,0.06);border:1.5px solid #E8EDF5;transition:all .2s">
-          <div style="font-size:1.6rem;margin-bottom:8px">{icon}</div>
+          <div style="font-size:1.6rem;margin-bottom:8px" aria-hidden="true">{icon}</div>
           <div style="font-size:2rem;font-weight:900;color:{color};line-height:1;letter-spacing:-1px">{val}</div>
           <div style="font-size:.7rem;font-weight:700;color:#6B7280;text-transform:uppercase;
             letter-spacing:.6px;margin-top:12px">{label}</div>
@@ -459,14 +459,34 @@ def page_header_html(title: str, subtitle: str) -> str:
 # ── Core helpers ──────────────────────────────────────────────────────────────
 
 def call_api(audio_bytes: bytes, filename: str) -> dict:
-    resp = requests.post(
-        API_URL,
-        files={"audio": (filename, audio_bytes)},
-        data={"condition_on_previous_text": "false", "no_speech_threshold": "0.6"},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    """Call the FluentVoice API with proper error handling."""
+    if not audio_bytes or len(audio_bytes) == 0:
+        raise ValueError("Audio file is empty. Please record or upload audio.")
+
+    try:
+        resp = requests.post(
+            API_URL,
+            files={"audio": (filename, audio_bytes)},
+            data={"condition_on_previous_text": "false", "no_speech_threshold": "0.6"},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.ConnectionError:
+        raise ConnectionError("Cannot reach the API. Please check your internet connection.")
+    except requests.exceptions.Timeout:
+        raise TimeoutError("The API took too long to respond. Please try a shorter audio clip.")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 400:
+            raise ValueError("Audio format not supported. Please try MP3, WAV, or OGG.")
+        elif e.response.status_code == 429:
+            raise RuntimeError("API rate limit exceeded. Please wait a moment and try again.")
+        elif e.response.status_code >= 500:
+            raise RuntimeError("The API is temporarily unavailable. Please try again in a moment.")
+        else:
+            raise RuntimeError(f"API error: {e.response.status_code}")
+    except ValueError as e:
+        raise ValueError(f"Invalid API response: {str(e)}")
 
 
 def save_session(patient_name: str, filename: str, audio_bytes: bytes, report: dict):
@@ -481,16 +501,23 @@ def save_session(patient_name: str, filename: str, audio_bytes: bytes, report: d
 
 
 def analyze_and_save(audio_bytes: bytes, filename: str, patient_name: str):
+    """Analyze audio and save session with error recovery."""
+    if not patient_name or not patient_name.strip():
+        st.error("⚠️ Please enter your name before analyzing.")
+        return
+
     with st.spinner("Analyzing audio — this may take 15–30 seconds…"):
         try:
             result = call_api(audio_bytes, filename)
             st.session_state.last_result = result
             save_session(patient_name, filename, audio_bytes, result)
-            st.success("✅ Analysis complete!")
-        except requests.exceptions.Timeout:
-            st.error("⏱ The API timed out. Please try a shorter audio clip.")
-        except requests.exceptions.RequestException as e:
-            st.error(f"API error: {e}")
+            st.success("✅ Analysis complete! Your results are ready below.")
+        except ValueError as e:
+            st.error(f"⚠️ {str(e)}")
+        except (TimeoutError, ConnectionError, RuntimeError) as e:
+            st.error(f"📡 {str(e)}")
+        except Exception as e:
+            st.error(f"🔧 Unexpected error. Please try again or contact support: {str(e)}")
 
 
 def generate_insights(result: dict) -> list[str]:
@@ -617,30 +644,36 @@ with st.sidebar:
 
     if not st.session_state.logged_in:
         st.markdown('<div style="font-size:.72rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Your Name</div>', unsafe_allow_html=True)
-        name_input = st.text_input("Your Name", placeholder="e.g. Jane Doe", label_visibility="collapsed")
+        name_input = st.text_input("Your Name", placeholder="e.g. Jane Doe", label_visibility="collapsed",
+                                    max_chars=100, help="Enter your first and last name (max 100 characters)")
 
         st.markdown('<div style="font-size:.72rem;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px">I am a</div>', unsafe_allow_html=True)
         col_p, col_t = st.columns(2, gap="small")
         with col_p:
             if st.button("👤 Patient", key="toggle_patient", use_container_width=True,
-                         type="primary" if st.session_state._role_choice == "Patient" else "secondary"):
+                         type="primary" if st.session_state._role_choice == "Patient" else "secondary",
+                         help="I am a patient seeking analysis"):
                 st.session_state._role_choice = "Patient"
                 st.rerun()
         with col_t:
             if st.button("🩺 Therapist", key="toggle_therapist", use_container_width=True,
-                         type="primary" if st.session_state._role_choice == "Therapist" else "secondary"):
+                         type="primary" if st.session_state._role_choice == "Therapist" else "secondary",
+                         help="I am a speech therapist"):
                 st.session_state._role_choice = "Therapist"
                 st.rerun()
 
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        if st.button("Continue →", use_container_width=True):
-            if name_input.strip():
-                st.session_state.name      = name_input.strip()
+        if st.button("Continue →", use_container_width=True, help="Proceed to the main application"):
+            cleaned_name = name_input.strip()
+            if not cleaned_name:
+                st.error("⚠️ Please enter your name to continue.")
+            elif len(cleaned_name) < 2:
+                st.error("⚠️ Please enter at least 2 characters.")
+            else:
+                st.session_state.name      = cleaned_name
                 st.session_state.role      = st.session_state._role_choice
                 st.session_state.logged_in = True
                 st.rerun()
-            else:
-                st.warning("Please enter your name.")
     else:
         name    = st.session_state.name
         role    = st.session_state.role
@@ -719,15 +752,22 @@ if st.session_state.role == "Patient":
 
     with tab_upload:
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        audio_file   = st.file_uploader("Choose a WAV, MP3, or M4A file", type=["wav","mp3","m4a"], label_visibility="collapsed")
+        audio_file   = st.file_uploader("Choose a WAV, MP3, or M4A file", type=["wav","mp3","m4a"],
+                                        label_visibility="collapsed",
+                                        help="Supported formats: WAV, MP3, M4A. Max size: 200MB")
         upload_bytes = None
         upload_name  = None
         if audio_file is not None:
             upload_bytes = audio_file.read()
             upload_name  = audio_file.name
-            st.audio(upload_bytes, format=audio_file.type)
+            if not upload_bytes:
+                st.error("⚠️ The uploaded file is empty. Please try another file.")
+                upload_bytes = None
+            else:
+                st.audio(upload_bytes, format=audio_file.type)
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        if st.button("🔍  Analyze Speech", disabled=(upload_bytes is None), key="analyze_upload"):
+        if st.button("🔍  Analyze Speech", disabled=(upload_bytes is None), key="analyze_upload",
+                    help="Analyze the uploaded audio file for fluency metrics"):
             analyze_and_save(upload_bytes, upload_name, st.session_state.name)
 
     with tab_record:
@@ -737,13 +777,20 @@ if st.session_state.role == "Patient":
             'Press the microphone button to start recording. Press again to stop.</p>',
             unsafe_allow_html=True,
         )
-        audio_input    = st.audio_input("Record your voice", key="native_recorder", label_visibility="collapsed")
+        audio_input    = st.audio_input("Record your voice", key="native_recorder",
+                                       label_visibility="collapsed",
+                                       help="Click the microphone to start recording")
         recorded_bytes = None
         if audio_input is not None:
             recorded_bytes = audio_input.read()
-            st.success("✅ Recording captured — ready to analyze.")
+            if not recorded_bytes:
+                st.error("⚠️ Recording is empty. Please try again.")
+                recorded_bytes = None
+            else:
+                st.success("✅ Recording captured — ready to analyze.")
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        if st.button("🔍  Analyze Speech", disabled=(recorded_bytes is None), key="analyze_record"):
+        if st.button("🔍  Analyze Speech", disabled=(recorded_bytes is None), key="analyze_record",
+                    help="Analyze the recorded audio for fluency metrics"):
             analyze_and_save(recorded_bytes, "recording.wav", st.session_state.name)
 
     if st.session_state.last_result:
