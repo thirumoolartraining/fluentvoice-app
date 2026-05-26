@@ -133,7 +133,6 @@ st.markdown("""
   padding: 5px !important;
   border: 1px solid rgba(27,43,94,0.08) !important;
   gap: 4px !important;
-  backdrop-filter: blur(8px);
 }
 [data-testid="stTabs"] button[role="tab"] {
   border-radius: 10px !important;
@@ -386,7 +385,7 @@ def severity_banner_html(severity: str) -> str:
         ("#F0F4FF", "#1B2B5E", "#1B2B5E", "📊", severity.title(), "Fluency analysis complete.")
     )
     return f"""
-    <div style="background:{bg};border:1.5px solid {border};border-left:5px solid {border};
+    <div style="background:{bg};border:1.5px solid {border};
       border-radius:16px;padding:18px 22px;margin:18px 0 6px;
       display:flex;align-items:center;gap:16px;
       box-shadow:0 2px 12px {border}22">
@@ -400,26 +399,23 @@ def severity_banner_html(severity: str) -> str:
 
 def metric_cards_html(score: float, rate: float, disf_count: int, pause_count: int) -> str:
     rate_val = f"{rate:.0f}" if rate <= 300 else "N/A"
-    rate_unit = "wpm" if rate <= 300 else ""
     cards = [
-        ("🎯", f"{score:.1f}", "/ 100", "Fluency Score",  "#1B2B5E", "#EEF2FF"),
-        ("💬", rate_val,       rate_unit, "Speech Rate",  "#6366F1", "#EEF2FF"),
-        ("⚡", str(disf_count),"events",  "Disfluencies", "#F59E0B", "#FFFBEB"),
-        ("⏸", str(pause_count),"pauses",  "Pauses",       "#EC4899", "#FDF2F8"),
+        ("🎯", f"{score:.1f}", "Fluency Score",  "#1B2B5E"),
+        ("💬", rate_val,       "Speech Rate",  "#6366F1"),
+        ("⚡", str(disf_count),"Disfluencies", "#F59E0B"),
+        ("⏸", str(pause_count),"Pauses",       "#EC4899"),
     ]
     inner = ""
-    for icon, val, unit, label, color, bg in cards:
+    for icon, val, label, color in cards:
         inner += f"""
-        <div style="background:white;border-radius:18px;padding:22px 16px;text-align:center;
-          box-shadow:0 4px 20px rgba(27,43,94,0.07);border:1.5px solid #E8EDF5;
-          border-top:4px solid {color};transition:transform .2s">
-          <div style="font-size:1.7rem;margin-bottom:10px">{icon}</div>
-          <div style="font-size:1.9rem;font-weight:900;color:{color};line-height:1;letter-spacing:-1px">{val}</div>
-          <div style="font-size:.72rem;color:#9CA3AF;margin-top:3px;font-weight:500">{unit}</div>
-          <div style="font-size:.72rem;font-weight:700;color:#6B7280;text-transform:uppercase;
-            letter-spacing:.7px;margin-top:10px;border-top:1px solid #F3F4F6;padding-top:10px">{label}</div>
+        <div style="background:white;border-radius:18px;padding:20px 16px;text-align:center;
+          box-shadow:0 2px 12px rgba(27,43,94,0.06);border:1.5px solid #E8EDF5;transition:all .2s">
+          <div style="font-size:1.6rem;margin-bottom:8px">{icon}</div>
+          <div style="font-size:2rem;font-weight:900;color:{color};line-height:1;letter-spacing:-1px">{val}</div>
+          <div style="font-size:.7rem;font-weight:700;color:#6B7280;text-transform:uppercase;
+            letter-spacing:.6px;margin-top:12px">{label}</div>
         </div>"""
-    return f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0 4px">{inner}</div>'
+    return f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0">{inner}</div>'
 
 
 def insight_card_html(text: str) -> str:
